@@ -1,0 +1,11 @@
+[package]
+name = "esobsc"
+version = "0.1.0"
+authors = ["Сухарик <suhr@i2pmail.org>"]
+
+[dependencies.oak]
+git = "https://github.com/ptal/oak.git"
+
+[dependencies.oak_runtime]
+git = "https://github.com/ptal/oak.git"
+path = "runtime"
