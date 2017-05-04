@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use oak_runtime::*;
 
 use super::ast::*;
@@ -6,8 +7,6 @@ use super::ast::*;
 // Be afraid!
 
 grammar! obsc {
-    #![show_api]
-
     program = spacing expression    // a program is, but, an expression
 
     // Damn left recursion
@@ -159,7 +158,7 @@ grammar! obsc {
     fn string_expression(s: Vec<char>) -> Expression { Expression::String(s.into_iter().collect()) }
     fn quotation_expression(q: Expression) -> Expression { Expression::Quotation(Box::new(q)) }
     fn enclosed_expression(e: Expression) -> Expression { e }
-    fn empty_expression() -> Expression { Expression::IdN(0) }
+    fn empty_expression() -> Expression { Expression::Nop }
 
     fn infix_chain(exp: Expression, chain: Vec<(Word, Expression)>) -> Expression {
         let mut chain = chain.into_iter();
@@ -178,8 +177,20 @@ grammar! obsc {
             ])
         })
     }
-    fn infix_left(exp: Expression, inf: Word) -> Expression { unimplemented!() }
-    fn infix_right(inf: Word, exp: Expression) -> Expression { unimplemented!() }
+
+    fn infix_left(exp: Expression, inf: Word) -> Expression {
+        Expression::InfixLeft(
+            Box::new(exp),
+            Box::new(Expression::Word(inf)),
+        )
+    }
+
+    fn infix_right(inf: Word, exp: Expression) -> Expression {
+        Expression::InfixRight(
+            Box::new(Expression::Word(inf)),
+            Box::new(exp),
+        )
+    }
 
     fn composition(head: Expression, mut tail: Vec<Expression>) -> Expression {
         tail.insert(0, head);
@@ -191,6 +202,9 @@ grammar! obsc {
     }
 }
 
+pub fn parse(code: String) -> Result<Expression, ()> {
+    obsc::parse_program(code.into_state()).data.ok_or(())
+}
 
 // I'm not a TDD programmer. But when I make my code compiling, I really doubt whether my code even works
 // So I make small examples to check if results produced by my code acutally make any sense
