@@ -2,6 +2,7 @@
 pub enum Expression {
     Composition(Vec<Expression>),      // `Comp`? Ugly. `Cmpstn`? Ugly as C. `Compose`? Meh.
     Concatenation(Vec<Expression>),    // no escape from long long names
+    Question(Box<Expression>, Box<Expression>),
     Word(Word),
     Integer(i64),
     Float(f64),
@@ -53,7 +54,7 @@ fn word_arity(w: &Word) -> Arity {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Arity(u32, u32);
+pub struct Arity(pub u32, pub u32);
 
 impl Arity {
     fn concat(self, other: Arity) -> Self {
@@ -72,6 +73,7 @@ impl Arity {
 pub enum Arited {
     Composition(Vec<Arited>, Arity),
     Concatenation(Vec<Arited>, Arity),
+    Question(Box<Arited>, Box<Arited>, Arity),
     Word(Word, Arity),
     Integer(i64),
     Float(f64),
@@ -97,6 +99,14 @@ impl Arited {
                 let conc: Vec<Arited> = v.into_iter().map(Arited::from_expression).collect();
                 let arity = conc.iter().fold(Arity(0, 0), |ar, e| ar.concat(e.arity()));
                 Arited::Concatenation(conc, arity)
+            },
+            Question(c, a) => {
+                let c = Arited::from_expression(*c);
+                let a = Arited::from_expression(*a);
+                let c_ar = c.arity();
+                if c_ar != a.arity() { panic!("Branch arity error") }
+
+                Arited::Question(Box::new(c), Box::new(a), Arity(c_ar.0 + 1, c_ar.1))
             },
             InfixLeft(e, op) => {
                 let e = Arited::from_expression(*e);
@@ -149,6 +159,7 @@ impl Arited {
         match *self {
             Composition(_, ar)
             | Concatenation(_, ar)
+            | Question(_, _, ar)
             | Word(_, ar) => ar,
             IdN(n) => Arity(n, n),
             _ => Arity(0, 1)

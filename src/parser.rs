@@ -1,7 +1,13 @@
 #![allow(dead_code)]
 use oak_runtime::*;
+use regex::Regex;
 
 use super::ast::*;
+
+lazy_static! {
+    static ref NEWLINE_REGEX: Regex = Regex::new(r"[^\\](\\n)").unwrap();
+    static ref SLASH_REGEX: Regex = Regex::new(r"(\\\\)").unwrap();
+}
 
 // Parsing is scary. Very scary.
 // Be afraid!
@@ -38,10 +44,12 @@ grammar! obsc {
 
     concatenation = simple (concat simple)+ > concatenation
     composition = (infix / concatenation / simple) (non_empty / plain)+ > composition
+    question = qmark expression colon expression dot > question
 
     // Simple as ``(⍬`,`·`,`·`,`·)``
     simple
-        = ensquared
+        = question
+        / ensquared
         / enclosed
         / string
         / number
@@ -96,6 +104,10 @@ grammar! obsc {
     rbracket = "]" spacing -> ()
 
     // Behold the unicode
+    qmark = "?" spacing -> ()
+    colon = ":" spacing -> ()
+    dot = "." spacing -> ()
+
     rec = "∇" spacing -> ()
     print = "⎕" spacing -> ()
     concat = ";" spacing -> ()
@@ -155,7 +167,12 @@ grammar! obsc {
         let int: String = int.into_iter().collect();
         Expression::Integer(int.parse().unwrap())
     }
-    fn string_expression(s: Vec<char>) -> Expression { Expression::String(s.into_iter().collect()) }
+    fn string_expression(s: Vec<char>) -> Expression {
+        let string: String = s.into_iter().collect();
+        let string = NEWLINE_REGEX.replace_all(&string, "\n");
+        let string = SLASH_REGEX.replace_all(&string, "\\");
+        Expression::String(string.into_owned())
+    }
     fn quotation_expression(q: Expression) -> Expression { Expression::Quotation(Box::new(q)) }
     fn enclosed_expression(e: Expression) -> Expression { e }
     fn empty_expression() -> Expression { Expression::Nop }
@@ -196,9 +213,14 @@ grammar! obsc {
         tail.insert(0, head);
         Expression::Composition(tail)
     }
+
     fn concatenation(head: Expression, mut tail: Vec<Expression>) -> Expression {
         tail.insert(0, head);
         Expression::Concatenation(tail)
+    }
+
+    fn question(cons: Expression, alter: Expression) -> Expression {
+        Expression::Question(Box::new(cons), Box::new(alter))
     }
 }
 
